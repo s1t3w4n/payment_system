@@ -1,0 +1,3 @@
+rootProject.name = 'keycloak-spring-security-learn'
+
+include 'individuals_api'

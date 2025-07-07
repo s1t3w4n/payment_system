@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: ${APP_NAME:individuals_api}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri:  ${KEYCLOAK_AUTH_SERVER_URL:http://localhost:9090}/realms/${KEYCLOAK_REALM:my-app-realm}
+
+keycloak:
+  auth-server-url: ${KEYCLOAK_AUTH_SERVER_URL:http://localhost:9090}
+  realm: ${KEYCLOAK_REALM:my-app-realm}
+  client-id: ${KEYCLOAK_CLIENT_ID:my-app-client}
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:pYeKYYS6Yp1YziNjgDjQPHgtu7RbwPog}
+  admin:
+    username: ${KEYCLOAK_ADMIN_USERNAME:my_user_manager}
+    password: ${KEYCLOAK_ADMIN_PASSWORD:my_user_manager_password}
+
+server:
+  port: ${SERVER_PORT:8091}
