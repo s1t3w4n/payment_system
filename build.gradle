@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-group = 'net.proselyte'
+group = 'my.application'
 version = '1.0.0'
 
 repositories {
