@@ -317,11 +317,13 @@ public class AuthControllerIT extends KeycloakTestBase {
                 .map(AuthResponse::accessToken)
                 .blockFirst();
 
-        // When & Then
+        // When
         webTestClient.get().uri("/v1/auth/me")
                 .header("Authorization", "Bearer " + token)
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
+
+                // Then
                 .expectStatus().isOk()
                 .expectBody()
                 .jsonPath("$.email").isEqualTo("testuser@example.com");
