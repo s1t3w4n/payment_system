@@ -6,6 +6,7 @@ import my.application.individuals_api.model.KeycloakUserCreateBody;
 import my.application.individuals_api.model.KeycloakUserRepresentation;
 import my.application.individuals_api.response.AuthResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -42,12 +43,15 @@ public class KeycloakIntegration {
     private String adminPassword;
 
     private final WebClient webClient;
+    private final KeycloakAdminTokenHolder adminTokenHolder;
 
-    public KeycloakIntegration(@Value("${keycloak.auth-server-url}") String authServerUrl) {
+    public KeycloakIntegration(@Value("${keycloak.auth-server-url}") String authServerUrl,
+                               @Lazy KeycloakAdminTokenHolder adminTokenHolder) {
         this.webClient = WebClient.builder()
                 .baseUrl(authServerUrl)
                 .defaultHeader("Content-Type", "application/x-www-form-urlencoded")
                 .build();
+        this.adminTokenHolder = adminTokenHolder;
     }
 
     public Mono<AuthResponse> getUserToken(MultiValueMap<String, String> formData) {
@@ -61,8 +65,9 @@ public class KeycloakIntegration {
                 .bodyToMono(AuthResponse.class);
     }
 
-    public Mono<Void> createUser(String adminAccessToken, String email, String password) {
-        return webClient.post()
+    public Mono<Void> createUser(String email, String password) {
+        return getAdminAccessToken()
+                .flatMap(adminAccessToken -> webClient.post()
                         .uri("/admin/realms/{realm}/users", realm)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -72,32 +77,37 @@ public class KeycloakIntegration {
                                 return Mono.error(new AuthException(USER_ALREADY_EXISTS, HttpStatus.CONFLICT));
                             }
                             return Mono.empty();
-                        });
+                        }));
     }
 
-    public Mono<KeycloakUserRepresentation> getUserById(String adminAccessToken, String userId) {
-        return webClient.get()
-                        .uri("/admin/realms/{realm}/users/{userId}", realm, userId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
-                        .retrieve()
-                        .onRawStatus(status -> status == HttpStatus.NOT_FOUND.value(),
-                                response -> Mono.error(new AuthException(USER_NOT_FOUND, HttpStatus.NOT_FOUND)))
-                        .bodyToMono(KeycloakUserRepresentation.class);
+    public Mono<KeycloakUserRepresentation> getUserById(String userId) {
+        return getAdminAccessToken().flatMap(adminAccessToken -> webClient.get()
+                .uri("/admin/realms/{realm}/users/{userId}", realm, userId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
+                .retrieve()
+                .onRawStatus(status -> status == HttpStatus.NOT_FOUND.value(),
+                        response -> Mono.error(new AuthException(USER_NOT_FOUND, HttpStatus.NOT_FOUND)))
+                .bodyToMono(KeycloakUserRepresentation.class));
     }
 
-    public Mono<List<String>> getRolesByUserId(String adminAccessToken, String userId) {
-        return webClient.get()
+    public Mono<List<String>> getRolesByUserId(String userId) {
+        return getAdminAccessToken().flatMap(adminAccessToken -> webClient.get()
                 .uri("/admin/realms/{realm}/users/{userId}/role-mappings/realm", realm, userId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<List<KeycloakRoleRepresentation>>() {})
+                .bodyToMono(new ParameterizedTypeReference<List<KeycloakRoleRepresentation>>() {
+                })
                 .map(roles -> roles.stream()
                         .map(KeycloakRoleRepresentation::name)
-                        .collect(Collectors.toList()));
+                        .collect(Collectors.toList())));
     }
 
-    public Mono<String> getAdminAccessToken() {
-        return getUserToken(createAdminFormData()).map(AuthResponse::accessToken);
+    protected Mono<AuthResponse> getNewAdminAccessToken() {
+        return getUserToken(createAdminFormData());
+    }
+
+    private Mono<String> getAdminAccessToken() {
+        return adminTokenHolder.getAdminToken();
     }
 
     private MultiValueMap<String, String> createAdminFormData() {

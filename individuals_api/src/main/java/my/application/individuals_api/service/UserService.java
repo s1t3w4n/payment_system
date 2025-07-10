@@ -31,8 +31,7 @@ public class UserService {
     public Mono<AuthResponse> registerUser(RegistrationRequest request) {
         log.info("Entering registerUser method with email: {}", request.email());
         return ValidationUtils.validatePassword(request.password(), request.confirmPassword())
-                .then(keycloakIntegration.getAdminAccessToken())
-                .flatMap(adminAccessToken -> keycloakIntegration.createUser(adminAccessToken, request.email(), request.password())
+                .then(keycloakIntegration.createUser(request.email(), request.password())
                         .then(loginUser(request.email(), request.password())));
     }
 
@@ -45,14 +44,13 @@ public class UserService {
 
     public Mono<UserInfoResponse> getUserInfo(Jwt jwt) {
         log.info("Entering getUserInfo method for user ID: {}", jwt.getSubject());
-        return keycloakIntegration.getAdminAccessToken()
-                .flatMap(adminAccessToken -> keycloakIntegration.getUserById(adminAccessToken, jwt.getSubject())
-                        .publishOn(Schedulers.boundedElastic())
-                        .map(keycloakUserRepresentation -> new UserInfoResponse(
-                                keycloakUserRepresentation.id(),
-                                keycloakUserRepresentation.email(),
-                                keycloakIntegration.getRolesByUserId(adminAccessToken, jwt.getSubject()).block(),
-                                Instant.ofEpochMilli(keycloakUserRepresentation.createdTimestamp()))));
+        return keycloakIntegration.getUserById(jwt.getSubject())
+                .publishOn(Schedulers.boundedElastic())
+                .map(keycloakUserRepresentation -> new UserInfoResponse(
+                        keycloakUserRepresentation.id(),
+                        keycloakUserRepresentation.email(),
+                        keycloakIntegration.getRolesByUserId(jwt.getSubject()).block(),
+                        Instant.ofEpochMilli(keycloakUserRepresentation.createdTimestamp())));
     }
 
     private MultiValueMap<String, String> createLoginFormData(String username, String password) {
