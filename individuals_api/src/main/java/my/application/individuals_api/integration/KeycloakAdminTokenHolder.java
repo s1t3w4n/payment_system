@@ -2,7 +2,9 @@ package my.application.individuals_api.integration;
 
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -38,6 +40,7 @@ public class KeycloakAdminTokenHolder {
                     } finally {
                         lock.unlock();
                     }
-                });
+                })
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)));
     }
 }

@@ -17,7 +17,9 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -76,30 +78,37 @@ public class KeycloakIntegration {
                             if (clientResponse.statusCode() == HttpStatus.CONFLICT) {
                                 return Mono.error(new AuthException(USER_ALREADY_EXISTS, HttpStatus.CONFLICT));
                             }
-                            return Mono.empty();
-                        }));
+
+                            return clientResponse.bodyToMono(Void.class);
+                        })
+                        .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
+                                .filter(e -> Boolean.FALSE.equals(e instanceof AuthException))));
     }
 
     public Mono<KeycloakUserRepresentation> getUserById(String userId) {
         return getAdminAccessToken().flatMap(adminAccessToken -> webClient.get()
-                .uri("/admin/realms/{realm}/users/{userId}", realm, userId)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
-                .retrieve()
-                .onRawStatus(status -> status == HttpStatus.NOT_FOUND.value(),
-                        response -> Mono.error(new AuthException(USER_NOT_FOUND, HttpStatus.NOT_FOUND)))
-                .bodyToMono(KeycloakUserRepresentation.class));
+                        .uri("/admin/realms/{realm}/users/{userId}", realm, userId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
+                        .retrieve()
+                        .onRawStatus(status -> status == HttpStatus.NOT_FOUND.value(),
+                                response -> Mono.error(new AuthException(USER_NOT_FOUND, HttpStatus.NOT_FOUND)))
+                        .bodyToMono(KeycloakUserRepresentation.class))
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
+                        .filter(e -> Boolean.FALSE.equals(e instanceof AuthException)));
     }
 
     public Mono<List<String>> getRolesByUserId(String userId) {
         return getAdminAccessToken().flatMap(adminAccessToken -> webClient.get()
-                .uri("/admin/realms/{realm}/users/{userId}/role-mappings/realm", realm, userId)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
-                .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<List<KeycloakRoleRepresentation>>() {
-                })
-                .map(roles -> roles.stream()
-                        .map(KeycloakRoleRepresentation::name)
-                        .collect(Collectors.toList())));
+                        .uri("/admin/realms/{realm}/users/{userId}/role-mappings/realm", realm, userId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
+                        .retrieve()
+                        .bodyToMono(new ParameterizedTypeReference<List<KeycloakRoleRepresentation>>() {
+                        })
+                        .map(roles -> roles.stream()
+                                .map(KeycloakRoleRepresentation::name)
+                                .collect(Collectors.toList())))
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
+                        .filter(e -> Boolean.FALSE.equals(e instanceof AuthException)));
     }
 
     protected Mono<AuthResponse> getNewAdminAccessToken() {
