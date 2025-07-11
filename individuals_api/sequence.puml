@@ -1,0 +1,17 @@
+v@startuml
+ actor Client
+ participant API
+ participant Keycloak
+
+ Client -> API: POST /v1/auth/registration
+ API -> Keycloak: Create User
+ Keycloak --> API: OK
+ API -> Keycloak: Request token
+ Keycloak --> API: access_token, refresh_token
+ API --> Client: Tokens
+
+ Client -> API: GET /v1/auth/me
+ API -> Keycloak: Get user info
+ Keycloak --> API: User data
+ API --> Client: User data
+ @enduml

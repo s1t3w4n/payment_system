@@ -1,0 +1,22 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(dev, "External Client", "Пользователь, взаимодействующий с Individuals API")
+
+System_Boundary(indSystem, "Individuals Auth System") {
+    Container(indApi, "individuals-api", "Spring Boot WebFlux", "Оркестратор: регистрация, логин, обновление токена, получение данных")
+    Container(keycloak, "Keycloak", "Keycloak 24", "Управление пользователями, токены, роли, авторизация")
+    Container(postgres, "Keycloak Postgres", "PostgreSQL", "Хранение данных пользователей Keycloak")
+    Container(prometheus, "Prometheus", "Monitoring", "Сбор метрик с сервисов")
+    Container(loki, "Loki", "Logging", "Сбор логов из stdout")
+    Container(grafana, "Grafana", "Visualization", "Отображение логов и метрик в дэшбордах")
+}
+
+Rel(dev, indApi, "HTTP запросы (регистрация, логин, /me)", "JSON/REST")
+Rel(indApi, keycloak, "REST-запросы в Keycloak Admin/Token API", "HTTP")
+Rel(keycloak, postgres, "JDBC", "SQL")
+Rel(indApi, prometheus, "Отправка метрик", "Micrometer")
+Rel(indApi, loki, "Отправка логов", "stdout -> Docker -> Loki")
+Rel(grafana, prometheus, "Чтение метрик")
+Rel(grafana, loki, "Чтение логов")
+@enduml
