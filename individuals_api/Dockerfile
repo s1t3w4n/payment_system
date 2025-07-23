@@ -1,5 +1,5 @@
 # Стадия сборки
-FROM eclipse-temurin:21-jdk as builder
+FROM eclipse-temurin:24-jdk as builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ RUN ./gradlew dependencies --no-daemon
 RUN ./gradlew bootJar --no-daemon
 
 # Финальный образ
-FROM eclipse-temurin:21-jdk
+FROM eclipse-temurin:24-jdk
 
 WORKDIR /app
 
